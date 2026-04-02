@@ -1,0 +1,17 @@
+--- a/libavcodec/vulkan_encode.c
++++ b/libavcodec/vulkan_encode.c
+@@ -133,6 +133,14 @@ static int init_pic_rc(AVCodecContext *avctx, FFHWBaseEncodePicture *pic,
+         };
+         rc_info->layerCount++;
+         rc_info->pLayers = rc_layer;
++
++        if (avctx->rc_buffer_size > 0) {
++            int64_t bitrate = rc_layer->maxBitrate ? rc_layer->maxBitrate : avctx->bit_rate;
++            if (bitrate > 0) {
++                rc_info->virtualBufferSizeInMs = avctx->rc_buffer_size * 1000LL / bitrate;
++                rc_info->initialVirtualBufferSizeInMs = rc_info->virtualBufferSizeInMs * 3 / 4;
++            }
++        }
+     }
+ 
+     return ctx->codec->init_pic_rc(avctx, pic, rc_info, rc_layer);

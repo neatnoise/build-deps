@@ -6,6 +6,14 @@ if(BUILD_FFMPEG_ALL_PATCHES OR BUILD_FFMPEG_CBS_PATCHES)
     endforeach()
 endif()
 
+if(BUILD_FFMPEG_VULKAN)
+    file(GLOB FFMPEG_VULKAN_PATCH_FILES ${CMAKE_CURRENT_SOURCE_DIR}/patches/FFmpeg/FFmpeg/vulkan/*.patch)
+
+    foreach(patch_file ${FFMPEG_VULKAN_PATCH_FILES})
+        APPLY_GIT_PATCH(${FFMPEG_GENERATED_SRC_PATH} ${patch_file})
+    endforeach()
+endif()
+
 if(${arch} STREQUAL "aarch64" OR ${arch} STREQUAL "arm64")
     set(CBS_ARCH_PATH arm)
 elseif (${arch} STREQUAL "ppc64le")
