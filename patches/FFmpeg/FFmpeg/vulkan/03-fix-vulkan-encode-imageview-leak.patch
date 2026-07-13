@@ -1,0 +1,37 @@
+Fix VkImageView and buffer pool leak in Vulkan encoder uninit
+
+ff_hw_base_encode_close() frees remaining pictures without calling the
+encoder .free callback, leaking VkImageViews. Also move buffer pool
+uninit before base close so Vulkan buffers are freed while device is valid.
+
+diff --git a/libavcodec/vulkan_encode.c b/libavcodec/vulkan_encode.c
+--- a/libavcodec/vulkan_encode.c
++++ b/libavcodec/vulkan_encode.c
+@@ -42,10 +42,25 @@
+                                              ctx->session_params,
+                                              s->hwctx->alloc);
+ 
+-    ff_hw_base_encode_close(&ctx->base);
+-
++    /* Free the packet buffer pool while the device is still valid */
+     av_buffer_pool_uninit(&ctx->buf_pool);
+ 
++    /* Destroy image views for pictures still in the encode queue.
++     * ff_hw_base_encode_close() does not call the .free callback. */
++    for (FFHWBaseEncodePicture *pic = ctx->base.pic_start; pic; pic = pic->next) {
++        FFVulkanEncodePicture *vp = pic->priv;
++        if (vp && vp->in.view) {
++            vk->DestroyImageView(s->hwctx->act_dev, vp->in.view, s->hwctx->alloc);
++            vp->in.view = VK_NULL_HANDLE;
++        }
++        if (vp && !ctx->common.layered_dpb && vp->dpb.view) {
++            vk->DestroyImageView(s->hwctx->act_dev, vp->dpb.view, s->hwctx->alloc);
++            vp->dpb.view = VK_NULL_HANDLE;
++        }
++    }
++
++    ff_hw_base_encode_close(&ctx->base);
++
+     ff_vk_video_common_uninit(s, &ctx->common);
+ 
+     ff_vk_uninit(s);
